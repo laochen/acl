@@ -2,8 +2,8 @@
 #include "rpc_manager.h"
 
 rpc_manager::rpc_manager()
-: handle_(NULL)
-, service_(NULL)
+	: handle_(NULL)
+	, service_(NULL)
 {
 }
 
@@ -14,7 +14,7 @@ rpc_manager::~rpc_manager()
 
 
 void rpc_manager::init(acl::aio_handle* handle, int max_threads /* = 10 */,
-	const char* rpc_addr /* = NULL */)
+                       const char* rpc_addr /* = NULL */)
 {
 	handle_ = handle;
 

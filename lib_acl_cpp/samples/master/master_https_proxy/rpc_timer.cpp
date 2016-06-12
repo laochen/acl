@@ -3,8 +3,8 @@
 #include "rpc_timer.h"
 
 rpc_timer::rpc_timer(acl::aio_handle& handle)
-: acl::aio_timer_callback(true)
-, handle_(handle)
+	: acl::aio_timer_callback(true)
+	, handle_(handle)
 {
 }
 

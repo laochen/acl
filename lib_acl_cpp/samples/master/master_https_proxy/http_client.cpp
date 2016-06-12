@@ -5,8 +5,8 @@
 #include "http_client.h"
 
 http_client::http_client(acl::aio_socket_stream* conn, acl::http_request_manager* __conn_manager)
-: conn_(conn)
-, conn_manager_(__conn_manager)
+	: conn_(conn)
+	, conn_manager_(__conn_manager)
 {
 	http_ = new http_rpc(conn_, conn_manager_, (unsigned) var_cfg_content_length);
 }

@@ -3,9 +3,9 @@
 #include "http_rpc.h"
 
 http_rpc::http_rpc(acl::aio_socket_stream* client, acl::http_request_manager* __conn_manager, unsigned buf_size)
-: client_(client)
-, conn_manager_(__conn_manager)
-, buf_size_(buf_size)
+	: client_(client)
+	, conn_manager_(__conn_manager)
+	, buf_size_(buf_size)
 {
 	res_buf_ = (char*) acl_mymalloc(buf_size + 1);
 	unsigned i;
@@ -82,35 +82,35 @@ void http_rpc::handle_conn(acl::socket_stream* stream)
 	keep_alive_ = client->keep_alive();
 
 	acl::http_request* conn = NULL;
-    acl::http_request_pool* pool = (acl::http_request_pool*) conn_manager_->peek();
-    
-    if(pool){
-    	conn = (acl::http_request*) pool->peek();
-    }
+	acl::http_request_pool* pool = (acl::http_request_pool*) conn_manager_->peek();
 
-    if(!(pool&&conn)){
-    	return;
-    }
-    
-    const char* url = client->request_url();
-    acl::http_header& header = conn->request_header();
-    //logger(">> get_url: %s <<", url);
-    header.set_url(url)
-    .set_keep_alive(true)
-    .set_method(client->request_method());
+	if (pool) {
+		conn = (acl::http_request*) pool->peek();
+	}
 
-    // 发送 HTTP 请求数据同时接收 HTTP 响应头
-    if (conn->request(buf.c_str(), (int) buf.size()) == false)
-    {
-        pool->put(conn, false);
-        return;
-    }
+	if (!(pool && conn)) {
+		return;
+	}
+
+	const char* url = client->request_url();
+	acl::http_header& header = conn->request_header();
+	//logger(">> get_url: %s <<", url);
+	header.set_url(url)
+	.set_keep_alive(true)
+	.set_method(client->request_method());
+
+	// 发送 HTTP 请求数据同时接收 HTTP 响应头
+	if (conn->request(buf.c_str(), (int) buf.size()) == false)
+	{
+		pool->put(conn, false);
+		return;
+	}
 	ret = conn->read_body(res_buf_, buf_size_);
-	if(!ret){
+	if (!ret) {
 		return;
 	}
 	res_buf_[ret] = 0;
-    pool->put(conn, true);
+	pool->put(conn, true);
 
 	// 返回数据给客户端
 	res.response_header().set_status(200).set_keep_alive(keep_alive_);

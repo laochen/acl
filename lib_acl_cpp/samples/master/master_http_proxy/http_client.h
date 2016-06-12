@@ -5,7 +5,7 @@ class http_rpc;
 class http_client : public acl::aio_callback
 {
 public:
-	http_client(acl::aio_socket_stream* conn,acl::http_request_manager* __conn_manager);
+	http_client(acl::aio_socket_stream* conn, acl::http_request_manager* __conn_manager);
 	~http_client();
 
 private:

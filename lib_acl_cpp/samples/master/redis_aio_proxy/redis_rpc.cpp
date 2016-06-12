@@ -3,7 +3,7 @@
 #include "redis_rpc.h"
 #include "redis_parse.h"
 
-const char flags[] = {'-','-','-','+',':','$','*'};
+const char flags[] = {'-', '-', '-', '+', ':', '$', '*'};
 
 acl::string& redis_rpc::result_to_string(const acl::redis_result* result, acl::string& out)
 {
@@ -47,11 +47,11 @@ acl::string& redis_rpc::result_to_string(const acl::redis_result* result, acl::s
 }
 
 redis_rpc::redis_rpc(acl::aio_socket_stream* client, acl::redis_client_cluster* __manager,  int keepalive)
-: client_(client)
-, manager_(__manager)
-, keep_alive_(keepalive)
+    : client_(client)
+    , manager_(__manager)
+    , keep_alive_(keepalive)
 {
-    redis_proxy_ = new acl::redis_proxy(manager_,manager_->size());
+    redis_proxy_ = new acl::redis_proxy(manager_, manager_->size());
 }
 
 redis_rpc::~redis_rpc()
@@ -60,62 +60,62 @@ redis_rpc::~redis_rpc()
         // 销毁连接池
         delete redis_proxy_;
     }
-	//logger("rpc_request destroyed!");
+    //logger("rpc_request destroyed!");
 }
 
 // 调用 service_.rpc_fork 后，由 RPC 框架在子线程中调用本函数
 // 来处理本地其它模块发来的请求信息
 void redis_rpc::rpc_run()
 {
-	// 打开阻塞流对象
-	acl::socket_stream stream;
+    // 打开阻塞流对象
+    acl::socket_stream stream;
 
-	// 必须用 get_vstream() 获得的 ACL_VSTREAM 流对象做参数
-	// 来打开 stream 对象，因为在 acl_cpp 和 acl 中的阻塞流
-	// 和非阻塞流最终都是基于 ACL_VSTREAM，而 ACL_VSTREAM 流
-	// 内部维护着了一个读/写缓冲区，所以在长连接的数据处理中，
-	// 必须每次将 ACL_VSTREAM 做为内部流的缓冲流来对待
-	ACL_VSTREAM* vstream = client_->get_vstream();
-	ACL_VSTREAM_SET_RWTIMO(vstream, 10);
-	(void) stream.open(vstream);
-	// 设置为阻塞模式
-	stream.set_tcp_non_blocking(false);
+    // 必须用 get_vstream() 获得的 ACL_VSTREAM 流对象做参数
+    // 来打开 stream 对象，因为在 acl_cpp 和 acl 中的阻塞流
+    // 和非阻塞流最终都是基于 ACL_VSTREAM，而 ACL_VSTREAM 流
+    // 内部维护着了一个读/写缓冲区，所以在长连接的数据处理中，
+    // 必须每次将 ACL_VSTREAM 做为内部流的缓冲流来对待
+    ACL_VSTREAM* vstream = client_->get_vstream();
+    ACL_VSTREAM_SET_RWTIMO(vstream, 10);
+    (void) stream.open(vstream);
+    // 设置为阻塞模式
+    stream.set_tcp_non_blocking(false);
 
-	rpc_req_add();
+    rpc_req_add();
 
-	// 开始处理该 HTTP 请求
-	handle_conn(&stream);
+    // 开始处理该 HTTP 请求
+    handle_conn(&stream);
 
-	rpc_req_del();
+    rpc_req_del();
 
-	// 设置为非阻塞模式
-	stream.set_tcp_non_blocking(true);
+    // 设置为非阻塞模式
+    stream.set_tcp_non_blocking(true);
 
-	// 将 ACL_VSTREAM 与阻塞流对象解绑定，这样才能保证当释放阻塞流对象时
-	// 不会关闭与请求者的连接，因为该连接本身是属于非阻塞流对象的，需要采
-	// 用异步流关闭方式进行关闭
-	stream.unbind();
+    // 将 ACL_VSTREAM 与阻塞流对象解绑定，这样才能保证当释放阻塞流对象时
+    // 不会关闭与请求者的连接，因为该连接本身是属于非阻塞流对象的，需要采
+    // 用异步流关闭方式进行关闭
+    stream.unbind();
 }
 
 void redis_rpc::handle_conn(acl::socket_stream* stream)
 {
-	acl::string request;
-	char * data;
+    acl::string request;
+    char * data;
     struct redis_parse_t redis_parse;
-    unsigned len = 0,size = 0;
+    unsigned len = 0, size = 0;
     unsigned parse_start = 0;
     char *p = NULL;
     acl::ostream& out = *stream;
 
-    if (stream->read(request, false) == false){
+    if (stream->read(request, false) == false) {
         //服务器返回未知错误
         const char * error = redis_errno_description(2);
         out.write(error, strlen(error));
         return;
-    }else{
-    	data = request.c_str();
-    	len = request.length();
-    	size = len; 
+    } else {
+        data = request.c_str();
+        len = request.length();
+        size = len;
     }
 
     redis_parse_init(&redis_parse, REDIS_REQUEST, (char *const *)&data, &size);
@@ -138,8 +138,8 @@ void redis_rpc::handle_conn(acl::socket_stream* stream)
             parse_start = parse_start + redis_parse.rs.dosize;
             p = data + parse_start;
             size = len - parse_start;
-            if(size > 0){
-            	redis_parse_init(&redis_parse, REDIS_REQUEST, (char *const *)&p, &size);
+            if (size > 0) {
+                redis_parse_init(&redis_parse, REDIS_REQUEST, (char *const *)&p, &size);
             }
         } else {
             //返回解释错误
@@ -152,8 +152,8 @@ void redis_rpc::handle_conn(acl::socket_stream* stream)
             if (p) {
                 parse_start = p - data;
                 size = len - parse_start;
-                if(size > 0){
-                	redis_parse_init(&redis_parse, REDIS_REQUEST, (char *const *)&p, &size);
+                if (size > 0) {
+                    redis_parse_init(&redis_parse, REDIS_REQUEST, (char *const *)&p, &size);
                 }
             } else {
                 break;
@@ -164,17 +164,17 @@ void redis_rpc::handle_conn(acl::socket_stream* stream)
 
 void redis_rpc::rpc_onover()
 {
-	// 减少 rpc 计数
-	rpc_del();
+    // 减少 rpc 计数
+    rpc_del();
 
-	if (keep_alive_)
-	{
-		rpc_read_wait_add();
+    if (keep_alive_)
+    {
+        rpc_read_wait_add();
 
-		// 监控异步流是否可读
-		client_->read_wait(10);
-	}
-	else
-		// 关闭异步流对象
-		client_->close();
+        // 监控异步流是否可读
+        client_->read_wait(10);
+    }
+    else
+        // 关闭异步流对象
+        client_->close();
 }

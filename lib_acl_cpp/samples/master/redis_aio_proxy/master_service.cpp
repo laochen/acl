@@ -16,48 +16,48 @@ static int var_cfg_rw_timeout;
 char *var_cfg_rpc_addr;
 
 acl::master_str_tbl var_conf_str_tab[] = {
-    { "redis_backend_addr", "10.105.17.224:6000", &var_cfg_backend_addr },
-    { "redis_backend_pass", "", &var_cfg_backend_pass },
+	{ "redis_backend_addr", "10.105.17.224:6000", &var_cfg_backend_addr },
+	{ "redis_backend_pass", "", &var_cfg_backend_pass },
 	{ "rpc_addr", "127.0.0.1:0", &var_cfg_rpc_addr },
-    { 0, 0, 0 }
+	{ 0, 0, 0 }
 };
 
 int   var_cfg_preread;
 int   var_cfg_keepalive;
 
 acl::master_bool_tbl var_conf_bool_tab[] = {
-    { "preread", 1, &var_cfg_preread },
-    { "keepalive", 1, &var_cfg_keepalive }, 
-    { 0, 0, 0 }
+	{ "preread", 1, &var_cfg_preread },
+	{ "keepalive", 1, &var_cfg_keepalive },
+	{ 0, 0, 0 }
 };
 
 int   var_cfg_nthreads_limit;
 acl::master_int_tbl var_conf_int_tab[] = {
-    {"redis_redirect_max", 10, &var_cfg_redirect_max, 0, 0},
-    {"redis_redirect_sleep", 500, &var_cfg_redirect_sleep, 0, 0},
-    {"redis_max_conns", 100, &var_cfg_max_conns, 0, 0},
-    {"redis_conn_timeout", 10, &var_cfg_conn_timeout, 0, 0},
-    {"redis_rw_timeout", 10, &var_cfg_rw_timeout, 0, 0},
-    { "nthreads_limit", 4, &var_cfg_nthreads_limit, 0, 0 },    
-    { 0, 0 , 0 , 0, 0 }
+	{"redis_redirect_max", 10, &var_cfg_redirect_max, 0, 0},
+	{"redis_redirect_sleep", 500, &var_cfg_redirect_sleep, 0, 0},
+	{"redis_max_conns", 100, &var_cfg_max_conns, 0, 0},
+	{"redis_conn_timeout", 10, &var_cfg_conn_timeout, 0, 0},
+	{"redis_rw_timeout", 10, &var_cfg_rw_timeout, 0, 0},
+	{ "nthreads_limit", 4, &var_cfg_nthreads_limit, 0, 0 },
+	{ 0, 0 , 0 , 0, 0 }
 };
 
 
 void setRedis(acl::redis_client_cluster* __manager) {
-    __manager->set_retry_inter(1);
-    // 设置重定向的最大阀值，若重定向次数超过此阀值则报错
-    __manager->set_redirect_max(var_cfg_redirect_max);
+	__manager->set_retry_inter(1);
+	// 设置重定向的最大阀值，若重定向次数超过此阀值则报错
+	__manager->set_redirect_max(var_cfg_redirect_max);
 
-    // 当重定向次数 >= 2 时每次再重定向此函数设置休息的时间(毫秒)
-    __manager->set_redirect_sleep(var_cfg_redirect_sleep);
+	// 当重定向次数 >= 2 时每次再重定向此函数设置休息的时间(毫秒)
+	__manager->set_redirect_sleep(var_cfg_redirect_sleep);
 
-    acl::string buf(var_cfg_backend_addr);
+	acl::string buf(var_cfg_backend_addr);
 
-    const std::vector<acl::string>& token = buf.split2(",; \t");
-    __manager->set(var_cfg_backend_addr, var_cfg_max_conns, var_cfg_conn_timeout, var_cfg_rw_timeout);
+	const std::vector<acl::string>& token = buf.split2(",; \t");
+	__manager->set(var_cfg_backend_addr, var_cfg_max_conns, var_cfg_conn_timeout, var_cfg_rw_timeout);
 
-    __manager->set_all_slot(token[0], var_cfg_max_conns);
-    __manager->set_password("default", var_cfg_backend_pass);
+	__manager->set_all_slot(token[0], var_cfg_max_conns);
+	__manager->set_password("default", var_cfg_backend_pass);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -80,7 +80,7 @@ bool master_service::on_accept(acl::aio_socket_stream* client)
 	}
 
 	// 创建异步客户端流的回调对象并与该异步流进行绑定
-	redis_proxy_client* callback = new redis_proxy_client(client,__manager);
+	redis_proxy_client* callback = new redis_proxy_client(client, __manager);
 
 	// 注册异步流的读回调过程
 	client->add_read_callback(callback);
@@ -112,20 +112,20 @@ void master_service::proc_on_init()
 
 	// init rpc service
 	rpc_manager::get_instance().init(handle, var_cfg_nthreads_limit,
-		var_cfg_rpc_addr);
+	                                 var_cfg_rpc_addr);
 
 	// start one timer to logger the rpc status
 	rpc_timer* timer = new rpc_timer(*handle);
 	timer->start(1);
 
 	__manager =  new acl::redis_client_cluster();
-	setRedis(__manager);	
+	setRedis(__manager);
 }
 
 void master_service::proc_on_exit()
 {
-	if(__manager){
+	if (__manager) {
 		delete __manager;
 	}
-	rpc_manager::get_instance().finish();  
+	rpc_manager::get_instance().finish();
 }

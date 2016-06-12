@@ -16,7 +16,7 @@ public:
 	 * @param rpc_addr {const char*} RPC 通道监听地址
 	 */
 	void init(acl::aio_handle*, int max_threads = 10,
-		const char* rpc_addr = NULL);
+	          const char* rpc_addr = NULL);
 
 	void finish();
 
