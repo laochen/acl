@@ -7,16 +7,17 @@ http_rpc::http_rpc(acl::aio_socket_stream* client, acl::http_request_manager* __
 	, conn_manager_(__conn_manager)
 	, buf_size_(buf_size)
 {
-	res_buf_ = (char*) acl_mymalloc(buf_size + 1);
-	unsigned i;
-	for (i = 0; i < buf_size; i++)
-		res_buf_[i] = 0;
+	dbuf_internal_ = new dbuf_guard;
+	dbuf_ = dbuf_internal_;
+	
+	res_buf_ = (char*) dbuf_->dbuf_alloc(buf_size + 1);
+	memset(res_buf_, 0, buf_size + 1);
 }
 
 http_rpc::~http_rpc()
 {
 	//logger("rpc_request destroyed!");
-	acl_myfree(res_buf_);
+	delete dbuf_internal_;
 }
 
 // 调用 service_.rpc_fork 后，由 RPC 框架在子线程中调用本函数
@@ -94,8 +95,11 @@ void http_rpc::handle_conn(acl::socket_stream* stream)
 
 	const char* url = client->request_url();
 	acl::http_header& header = conn->request_header();
-	//logger(">> get_url: %s <<", url);
-	header.set_url(url)
+	char* host = dbuf_->dbuf_strdup(header.get_host());
+	
+	header.reset();
+	header.set_host(host)
+	.set_url(url)
 	.set_keep_alive(true)
 	.set_method(client->request_method());
 
@@ -105,6 +109,7 @@ void http_rpc::handle_conn(acl::socket_stream* stream)
 		pool->put(conn, false);
 		return;
 	}
+
 	ret = conn->read_body(res_buf_, buf_size_);
 	if (!ret) {
 		return;
