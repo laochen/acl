@@ -99,24 +99,49 @@ void redis_rpc::rpc_run()
 
 void redis_rpc::handle_conn(acl::socket_stream* stream)
 {
-    acl::string request;
-    char * data;
     struct redis_parse_t redis_parse;
     unsigned len = 0, size = 0;
     unsigned parse_start = 0;
+    acl::string request;
     char *p = NULL;
+    char * data;
+    char  buf[8192];
+    int   ret;
     acl::ostream& out = *stream;
 
-    if (stream->read(request, false) == false) {
-        //服务器返回未知错误
+    ACL_VSTREAM* vstream = stream->get_vstream();
+    vstream->rw_timeout = var_cfg_rw_timeout;
+    ret = acl_vstream_gets_nonl(vstream, buf, sizeof(buf) - 1);
+    if (ret == ACL_VSTREAM_EOF || ret < 2) {
         const char * error = redis_errno_description(2);
         out.write(error, strlen(error));
         return;
-    } else {
-        data = request.c_str();
-        len = request.length();
-        size = len;
     }
+    request = request << buf << "\r\n";
+
+    long long lines = acl_atoll(buf + 1);
+    lines = lines * 2;
+
+    if (lines <= 0) {
+        const char * error = redis_errno_description(2);
+        out.write(error, strlen(error));
+        return;
+    }
+
+    while (lines > 0) {
+        ret = acl_vstream_gets_nonl(vstream, buf, sizeof(buf) - 1);
+        if (ret == ACL_VSTREAM_EOF) {
+            const char * error = redis_errno_description(2);
+            out.write(error, strlen(error));
+            return;
+        }
+        request = request << buf << "\r\n";
+        lines = lines - 1;
+    }
+
+    data = request.c_str();
+    len = request.length();
+    size = len;
 
     redis_parse_init(&redis_parse, REDIS_REQUEST, (char *const *)&data, &size);
     do {

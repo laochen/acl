@@ -12,7 +12,7 @@ static int var_cfg_redirect_max;
 static int var_cfg_redirect_sleep;
 static int var_cfg_max_conns;
 static int var_cfg_conn_timeout;
-static int var_cfg_rw_timeout;
+int var_cfg_rw_timeout;
 char *var_cfg_rpc_addr;
 
 acl::master_str_tbl var_conf_str_tab[] = {

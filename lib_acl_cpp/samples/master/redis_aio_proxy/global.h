@@ -11,4 +11,5 @@ extern acl::master_bool_tbl var_conf_bool_tab[];
 
 extern int   var_cfg_nthreads_limit;
 extern int   var_cfg_keepalive;
+extern int 	 var_cfg_rw_timeout;
 extern acl::master_int_tbl var_conf_int_tab[];
