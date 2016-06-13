@@ -7,9 +7,9 @@ http_rpc::http_rpc(acl::aio_socket_stream* client, acl::http_request_manager* __
 	, conn_manager_(__conn_manager)
 	, buf_size_(buf_size)
 {
-	dbuf_internal_ = new dbuf_guard;
+	dbuf_internal_ = new acl::dbuf_guard;
 	dbuf_ = dbuf_internal_;
-	
+
 	res_buf_ = (char*) dbuf_->dbuf_alloc(buf_size + 1);
 	memset(res_buf_, 0, buf_size + 1);
 }
@@ -94,14 +94,27 @@ void http_rpc::handle_conn(acl::socket_stream* stream)
 	}
 
 	const char* url = client->request_url();
+	const char* content_type = client->header_value("Content-Type");
+	const char* cookie = client->header_value("Set-Cookie");
+	acl::HttpCookie* httpcookie = NULL;
 	acl::http_header& header = conn->request_header();
 	char* host = dbuf_->dbuf_strdup(header.get_host());
-	
+
 	header.reset();
 	header.set_host(host)
 	.set_url(url)
 	.set_keep_alive(true)
 	.set_method(client->request_method());
+
+	if (content_type) {
+		header.set_content_type(content_type);
+	}
+
+	if (cookie) {
+		httpcookie = dbuf_->create<acl::HttpCookie, acl::dbuf_guard*> (dbuf_);
+		httpcookie->setCookie(cookie);
+		header.add_cookie(httpcookie);
+	}
 
 	// 发送 HTTP 请求数据同时接收 HTTP 响应头
 	if (conn->request(buf.c_str(), (int) buf.size()) == false)
