@@ -1,9 +1,16 @@
 #include "stdafx.h"
 #include "rpc_stats.h"
+#include "redis_parser.h"
 #include "redis_rpc.h"
-#include "redis_parse.h"
 
 const char flags[] = {'-', '-', '-', '+', ':', '$', '*'};
+
+static void error(acl::ostream &out, int id) {
+    const char * info = redis_errno_description(id);
+    out.write(info, strlen(info));
+    return;
+}
+
 
 acl::string& redis_rpc::result_to_string(const acl::redis_result* result, acl::string& out)
 {
@@ -51,14 +58,21 @@ redis_rpc::redis_rpc(acl::aio_socket_stream* client, acl::redis_client_cluster* 
     , manager_(__manager)
     , keep_alive_(keepalive)
 {
+    //logger("rpc_request created!");
+    dbuf_internal_ = new acl::dbuf_guard;
+    dbuf_ = dbuf_internal_;
+
     redis_proxy_ = new acl::redis_proxy(manager_, manager_->size());
 }
 
 redis_rpc::~redis_rpc()
 {
     if (redis_proxy_) {
-        // 销毁连接池
         delete redis_proxy_;
+    }
+
+    if (dbuf_internal_) {
+        delete dbuf_internal_;
     }
     //logger("rpc_request destroyed!");
 }
@@ -81,12 +95,17 @@ void redis_rpc::rpc_run()
     // 设置为阻塞模式
     stream.set_tcp_non_blocking(false);
 
-    rpc_req_add();
+    if (var_cfg_rpc_stats_enabled) {
+        rpc_req_add();
+    }
 
     // 开始处理该 HTTP 请求
     handle_conn(&stream);
 
-    rpc_req_del();
+    if (var_cfg_rpc_stats_enabled) {
+        rpc_req_del();
+    }
+
 
     // 设置为非阻塞模式
     stream.set_tcp_non_blocking(true);
@@ -99,102 +118,85 @@ void redis_rpc::rpc_run()
 
 void redis_rpc::handle_conn(acl::socket_stream* stream)
 {
-    struct redis_parse_t redis_parse;
-    unsigned len = 0, size = 0;
-    unsigned parse_start = 0;
-    acl::string request;
-    char *p = NULL;
-    char * data;
-    char  buf[8192];
+    char  *buf;
     int   ret;
+    long long wanted = 0;
+    long long num_len = 24; //*12334534534534535353\r\n
+    long long max = 0;
+    std::vector<char *> fields;
+    acl::string request;
     acl::ostream& out = *stream;
 
+    buf = (char*) dbuf_->dbuf_alloc(num_len);
+    buf[num_len - 1] = 0;
+
     ACL_VSTREAM* vstream = stream->get_vstream();
-    vstream->rw_timeout = var_cfg_rw_timeout;
     ret = acl_vstream_gets_nonl(vstream, buf, sizeof(buf) - 1);
     if (ret == ACL_VSTREAM_EOF || ret < 2) {
-        const char * error = redis_errno_description(2);
-        out.write(error, strlen(error));
-        return;
+        return error(out, 8);
     }
-    request = request << buf << "\r\n";
+    request << buf << "\r\n";
 
     long long lines = acl_atoll(buf + 1);
     lines = lines * 2;
 
     if (lines <= 0) {
-        const char * error = redis_errno_description(2);
-        out.write(error, strlen(error));
-        return;
+        return error(out, 6);
     }
 
     while (lines > 0) {
-        ret = acl_vstream_gets_nonl(vstream, buf, sizeof(buf) - 1);
+        max = wanted + 2 + 1 > num_len ? wanted + 2 + 1 : num_len; // 尾巴\r\n\0
+        buf = (char*) dbuf_->dbuf_alloc(max);
+        buf[max - 1] = 0;
+        ret = acl_vstream_gets_nonl(vstream, buf, max);
         if (ret == ACL_VSTREAM_EOF) {
-            const char * error = redis_errno_description(2);
-            out.write(error, strlen(error));
-            return;
+            return error(out, 8);
         }
-        request = request << buf << "\r\n";
+        if ((lines & 1) == 0) {
+            wanted =  acl_atoll(buf + 1);
+        } else {
+            //各字段内容
+            if (ret != wanted) {
+                return error(out, 8);
+            }
+            fields.push_back(buf);
+            wanted = 0;
+        }
+        request << buf << "\r\n";
         lines = lines - 1;
     }
 
-    data = request.c_str();
-    len = request.length();
-    size = len;
+    int command_id =  check_command(fields);
+    if (command_id < 0 ) {
+        return error(out, 7);
+    }
 
-    redis_parse_init(&redis_parse, REDIS_REQUEST, (char *const *)&data, &size);
-    do {
-        redis_parse_request(&redis_parse);
-        if (redis_parse.rs.over) {
-            int id = redisCommandTable[redis_parse.rs.command_id].firstkey;
-            redis_proxy_->hash_slot(data + redis_parse.rs.field[id].offset, redis_parse.rs.field[id].len);
-            redis_proxy_->build_request(data + parse_start, redis_parse.rs.dosize);
-            const acl::redis_result* result = redis_proxy_->run();
-            if (result) {
-                acl::string outstr;
-                result_to_string(result, outstr);
-                out.write(outstr);
-            } else {
-                //服务器返回未知错误
-                const char * error = redis_errno_description(2);
-                out.write(error, strlen(error));
-            }
-            parse_start = parse_start + redis_parse.rs.dosize;
-            p = data + parse_start;
-            size = len - parse_start;
-            if (size > 0) {
-                redis_parse_init(&redis_parse, REDIS_REQUEST, (char *const *)&p, &size);
-            }
-        } else {
-            //返回解释错误
-            const char * error = redis_errno_description(redis_parse.rs.error);
-            out.write(error, strlen(error));
-
-            //继续解释，找到起点
-            parse_start = parse_start + redis_parse.rs.dosize;
-            p = strchr(data + parse_start, '*');
-            if (p) {
-                parse_start = p - data;
-                size = len - parse_start;
-                if (size > 0) {
-                    redis_parse_init(&redis_parse, REDIS_REQUEST, (char *const *)&p, &size);
-                }
-            } else {
-                break;
-            }
-        }
-    } while (parse_start < len);
+    int id = redisCommandTable[command_id].firstkey;
+    redis_proxy_->hash_slot(fields[id], strlen(fields[id]));
+    redis_proxy_->build_request(request.c_str(), request.length());
+    const acl::redis_result* result = redis_proxy_->run();
+    if (result) {
+        acl::string outstr;
+        result_to_string(result, outstr);
+        out.write(outstr);
+    } else {
+        //服务器返回未知错误
+        return error(out, 2);
+    }
 }
 
 void redis_rpc::rpc_onover()
 {
-    // 减少 rpc 计数
-    rpc_del();
+    if (var_cfg_rpc_stats_enabled) {
+        // 减少 rpc 计数
+        rpc_del();
+    }
 
     if (keep_alive_)
     {
-        rpc_read_wait_add();
+        if (var_cfg_rpc_stats_enabled) {
+            rpc_read_wait_add();
+        }
 
         // 监控异步流是否可读
         client_->read_wait(10);

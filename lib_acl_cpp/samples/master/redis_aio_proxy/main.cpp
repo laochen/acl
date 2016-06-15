@@ -17,6 +17,7 @@ int main(int argc, char* argv[])
 
 	if (argc >= 2 && strcmp(argv[1], "alone") == 0)
 	{
+		acl::log::stdout_open(true);
 		const char* addr = "127.0.0.1:8888";
 		printf("listen on: %s\r\n", addr);
 		ms.run_alone(addr, NULL, acl::ENGINE_KERNEL);  // 单独运行方式

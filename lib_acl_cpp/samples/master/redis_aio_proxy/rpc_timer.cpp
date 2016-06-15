@@ -30,7 +30,9 @@ void rpc_timer::stop()
 
 void rpc_timer::timer_callback(unsigned int)
 {
-	rpc_out(); // 输出当前 rpc 队列的数量
-	rpc_req_out();
-	rpc_read_wait_out();
+	if (var_cfg_rpc_stats_enabled) {
+		rpc_out(); // 输出当前 rpc 队列的数量
+		rpc_req_out();
+		rpc_read_wait_out();
+	}
 }

@@ -104,6 +104,11 @@ service redis_aio_proxy {
 	preread = 1
 #	rpc 线程池中最大线程数量限制
 	nthreads_limit = 4
+#	rpc 是否统计
+	rpc_stats_enabled = 0	
+#	rpc 日志记录频率（秒)	
+	rpc_timer_interval = 10
+
 #	长连接模式
 	keepalive = 1
 

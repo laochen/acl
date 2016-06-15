@@ -13,7 +13,9 @@ redis_proxy_client::redis_proxy_client(acl::aio_socket_stream* conn, acl::redis_
 
 redis_proxy_client::~redis_proxy_client()
 {
-	delete redis_;
+	if (redis_) {
+		delete redis_;
+	}
 }
 
 bool redis_proxy_client::write_callback()
@@ -34,9 +36,11 @@ void redis_proxy_client::close_callback()
 
 bool redis_proxy_client::read_wakeup()
 {
-	// 测试状态
-	rpc_read_wait_del();
-	rpc_add();
+	if (var_cfg_rpc_stats_enabled) {
+		// 测试状态
+		rpc_read_wait_del();
+		rpc_add();
+	}
 
 	// 先禁止异步流监控
 	conn_->disable_read();

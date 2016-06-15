@@ -12,6 +12,8 @@ static int var_cfg_redirect_max;
 static int var_cfg_redirect_sleep;
 static int var_cfg_max_conns;
 static int var_cfg_conn_timeout;
+static int var_cfg_rpc_timer_interval;
+
 int var_cfg_rw_timeout;
 char *var_cfg_rpc_addr;
 
@@ -24,21 +26,24 @@ acl::master_str_tbl var_conf_str_tab[] = {
 
 int   var_cfg_preread;
 int   var_cfg_keepalive;
+int   var_cfg_rpc_stats_enabled;
 
 acl::master_bool_tbl var_conf_bool_tab[] = {
 	{ "preread", 1, &var_cfg_preread },
 	{ "keepalive", 1, &var_cfg_keepalive },
+	{ "rpc_stats_enabled", 1, &var_cfg_rpc_stats_enabled },
 	{ 0, 0, 0 }
 };
 
 int   var_cfg_nthreads_limit;
 acl::master_int_tbl var_conf_int_tab[] = {
-	{"redis_redirect_max", 10, &var_cfg_redirect_max, 0, 0},
-	{"redis_redirect_sleep", 500, &var_cfg_redirect_sleep, 0, 0},
-	{"redis_max_conns", 100, &var_cfg_max_conns, 0, 0},
-	{"redis_conn_timeout", 10, &var_cfg_conn_timeout, 0, 0},
-	{"redis_rw_timeout", 10, &var_cfg_rw_timeout, 0, 0},
+	{ "redis_redirect_max", 10, &var_cfg_redirect_max, 0, 0},
+	{ "redis_redirect_sleep", 500, &var_cfg_redirect_sleep, 0, 0},
+	{ "redis_max_conns", 100, &var_cfg_max_conns, 0, 0},
+	{ "redis_conn_timeout", 10, &var_cfg_conn_timeout, 0, 0},
+	{ "redis_rw_timeout", 10, &var_cfg_rw_timeout, 0, 0},
 	{ "nthreads_limit", 4, &var_cfg_nthreads_limit, 0, 0 },
+	{ "rpc_timer_interval", 10, &var_cfg_rpc_timer_interval, 0, 0 },
 	{ 0, 0 , 0 , 0, 0 }
 };
 
@@ -104,7 +109,9 @@ bool master_service::on_accept(acl::aio_socket_stream* client)
 
 void master_service::proc_on_init()
 {
-	rpc_stats_init();
+	if (var_cfg_rpc_stats_enabled) {
+		rpc_stats_init();
+	}
 
 	// get aio_handle from master_aio
 	acl::aio_handle* handle = get_handle();
@@ -114,9 +121,12 @@ void master_service::proc_on_init()
 	rpc_manager::get_instance().init(handle, var_cfg_nthreads_limit,
 	                                 var_cfg_rpc_addr);
 
-	// start one timer to logger the rpc status
-	rpc_timer* timer = new rpc_timer(*handle);
-	timer->start(1);
+	if (var_cfg_rpc_stats_enabled) {
+		// start one timer to logger the rpc status
+		rpc_timer* timer = new rpc_timer(*handle);
+		timer->start(var_cfg_rpc_timer_interval);
+	}
+
 
 	__manager =  new acl::redis_client_cluster();
 	setRedis(__manager);

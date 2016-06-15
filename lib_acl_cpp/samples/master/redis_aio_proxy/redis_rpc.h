@@ -20,7 +20,8 @@ private:
 	char* res_buf_;  // 存放返回给客户端数据的缓冲区
 	unsigned buf_size_; // res_buf_ 的空间大小
 	acl::redis_proxy* redis_proxy_;
-
+	acl::dbuf_guard* dbuf_internal_;
+	acl::dbuf_guard* dbuf_;
 	// 在子线程中以阻塞方式处理客户端请求
 	void handle_conn(acl::socket_stream* stream);
 	acl::string& result_to_string(const acl::redis_result* result, acl::string& out);
