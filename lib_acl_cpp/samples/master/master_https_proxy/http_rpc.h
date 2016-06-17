@@ -3,7 +3,7 @@
 class http_rpc : public acl::rpc_request
 {
 public:
-	http_rpc(acl::aio_socket_stream* client, acl::http_request_manager* __conn_manager, unsigned buf_size);
+	http_rpc(acl::aio_socket_stream* client, acl::http_request_manager* __conn_manager);
 	~http_rpc();
 
 protected:
@@ -17,8 +17,6 @@ private:
 	acl::aio_socket_stream* client_;  // 客户端连接流
 	acl::http_request_manager* conn_manager_;
 	bool keep_alive_; // 是否与客户端保持长连接
-	char* res_buf_;  // 存放返回给客户端数据的缓冲区
-	unsigned buf_size_; // res_buf_ 的空间大小
 	acl::dbuf_guard* dbuf_internal_;
 	acl::dbuf_guard* dbuf_;
 

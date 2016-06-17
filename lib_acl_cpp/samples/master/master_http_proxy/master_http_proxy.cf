@@ -92,8 +92,8 @@ service master_http_proxy {
 	preread = 1
 #	rpc 线程池中最大线程数量限制
 	nthreads_limit = 4
-#	响应 HTTP 客户端的数据体长度
-	content_length = 1024
+#	rpc 日志记录频率（秒)	
+	rpc_timer_interval = 10
 
 #	后台通讯的服务器地址
 	http_backend_addr = 127.0.0.1:80

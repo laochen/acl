@@ -2,22 +2,20 @@
 #include "rpc_stats.h"
 #include "http_rpc.h"
 
-http_rpc::http_rpc(acl::aio_socket_stream* client, acl::http_request_manager* __conn_manager, unsigned buf_size)
+http_rpc::http_rpc(acl::aio_socket_stream* client, acl::http_request_manager* __conn_manager)
 	: client_(client)
 	, conn_manager_(__conn_manager)
-	, buf_size_(buf_size)
 {
 	dbuf_internal_ = new acl::dbuf_guard;
 	dbuf_ = dbuf_internal_;
-
-	res_buf_ = (char*) dbuf_->dbuf_alloc(buf_size + 1);
-	memset(res_buf_, 0, buf_size + 1);
 }
 
 http_rpc::~http_rpc()
 {
 	//logger("rpc_request destroyed!");
-	delete dbuf_internal_;
+	if(dbuf_internal_){
+		delete dbuf_internal_;
+	}
 }
 
 // 调用 service_.rpc_fork 后，由 RPC 框架在子线程中调用本函数
@@ -56,7 +54,6 @@ void http_rpc::rpc_run()
 
 void http_rpc::handle_conn(acl::socket_stream* stream)
 {
-	int ret = 0;
 	// HTTP 响应对象构造
 	acl::http_response res(stream);
 	// 响应数据体为 xml 格式
@@ -96,6 +93,7 @@ void http_rpc::handle_conn(acl::socket_stream* stream)
 	const char* url = client->request_url();
 	const char* content_type = client->header_value("Content-Type");
 	const char* cookie = client->header_value("Set-Cookie");
+	const char* gzip = client->header_value("Accept-Encoding");
 	acl::HttpCookie* httpcookie = NULL;
 	acl::http_header& header = conn->request_header();
 	char* host = dbuf_->dbuf_strdup(header.get_host());
@@ -104,11 +102,17 @@ void http_rpc::handle_conn(acl::socket_stream* stream)
 	header.set_host(host)
 	.set_url(url)
 	.set_keep_alive(true)
+	.set_content_type("text/plain")
+	.accept_gzip(false)
 	.set_method(client->request_method());
 
 	if (content_type) {
 		header.set_content_type(content_type);
 	}
+
+	if (gzip) {
+		header.accept_gzip(true);
+	}	
 
 	if (cookie) {
 		httpcookie = dbuf_->create<acl::HttpCookie, acl::dbuf_guard*> (dbuf_);
@@ -117,22 +121,24 @@ void http_rpc::handle_conn(acl::socket_stream* stream)
 	}
 
 	// 发送 HTTP 请求数据同时接收 HTTP 响应头
-	if (conn->request(buf.c_str(), (int) buf.size()) == false)
+	if (conn->request(buf.c_str(), buf.length()) == false)
 	{
 		pool->put(conn, false);
 		return;
 	}
 
-	ret = conn->read_body(res_buf_, buf_size_);
-	if (!ret) {
+	acl::string res_buf;
+
+	if(conn->get_body(res_buf, NULL) == false){
+		pool->put(conn, false);
 		return;
 	}
-	res_buf_[ret] = 0;
+
 	pool->put(conn, true);
 
 	// 返回数据给客户端
 	res.response_header().set_status(200).set_keep_alive(keep_alive_);
-	res.response(res_buf_, buf_size_);
+	res.response(res_buf.c_str(), res_buf.length());
 }
 
 void http_rpc::rpc_onover()

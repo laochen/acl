@@ -8,31 +8,32 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // 配置内容项
-char *var_cfg_rpc_addr;
-char *var_cfg_backend_addr;
+static char *var_cfg_rpc_addr;
+static char *var_cfg_backend_addr;
 acl::master_str_tbl var_conf_str_tab[] = {
 	{ "rpc_addr", "127.0.0.1:0", &var_cfg_rpc_addr },
-	{ "http_backend_addr", "127.0.0.1:80", &var_cfg_backend_addr },
+	{ "https_backend_addr", "127.0.0.1:80", &var_cfg_backend_addr },
 	{ 0, 0, 0 }
 };
 
-int   var_cfg_preread;
+static int   var_cfg_preread;
 acl::master_bool_tbl var_conf_bool_tab[] = {
 	{ "preread", 1, &var_cfg_preread },
 	{ 0, 0, 0 }
 };
 
-int   var_cfg_max_conns;
-int   var_cfg_conn_timeout;
-int   var_cfg_rw_timeout;
-int   var_cfg_nthreads_limit;
-int   var_cfg_content_length;
+static int   var_cfg_max_conns;
+static int   var_cfg_conn_timeout;
+static int   var_cfg_rw_timeout;
+static int   var_cfg_nthreads_limit;
+static int 	 var_cfg_rpc_timer_interval;
+
 acl::master_int_tbl var_conf_int_tab[] = {
 	{ "nthreads_limit", 4, &var_cfg_nthreads_limit, 0, 0 },
-	{ "content_length", 2048, &var_cfg_content_length, 0, 0 },
-	{ "http_max_conns", 100, &var_cfg_max_conns, 0, 0 },
-	{ "http_conn_timeout", 10, &var_cfg_conn_timeout, 0, 0 },
-	{ "http_rw_timeout", 10, &var_cfg_rw_timeout, 0, 0 },
+	{ "https_max_conns", 100, &var_cfg_max_conns, 0, 0 },
+	{ "https_conn_timeout", 10, &var_cfg_conn_timeout, 0, 0 },
+	{ "https_rw_timeout", 10, &var_cfg_rw_timeout, 0, 0 },
+	{ "rpc_timer_interval", 10, &var_cfg_rpc_timer_interval, 0, 0 },	
 	{ 0, 0 , 0 , 0, 0 }
 };
 

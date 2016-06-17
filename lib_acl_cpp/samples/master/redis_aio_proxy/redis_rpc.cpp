@@ -99,7 +99,7 @@ void redis_rpc::rpc_run()
         rpc_req_add();
     }
 
-    // 开始处理该 HTTP 请求
+    // 开始处理该 redis 请求
     handle_conn(&stream);
 
     if (var_cfg_rpc_stats_enabled) {
