@@ -12,7 +12,7 @@ static char *var_cfg_rpc_addr;
 static char *var_cfg_backend_addr;
 acl::master_str_tbl var_conf_str_tab[] = {
 	{ "rpc_addr", "127.0.0.1:0", &var_cfg_rpc_addr },
-	{ "https_backend_addr", "127.0.0.1:80", &var_cfg_backend_addr },
+	{ "http_backend_addr", "127.0.0.1:80", &var_cfg_backend_addr },
 	{ 0, 0, 0 }
 };
 
@@ -30,9 +30,9 @@ static int 	 var_cfg_rpc_timer_interval;
 
 acl::master_int_tbl var_conf_int_tab[] = {
 	{ "nthreads_limit", 4, &var_cfg_nthreads_limit, 0, 0 },
-	{ "https_max_conns", 100, &var_cfg_max_conns, 0, 0 },
-	{ "https_conn_timeout", 10, &var_cfg_conn_timeout, 0, 0 },
-	{ "https_rw_timeout", 10, &var_cfg_rw_timeout, 0, 0 },
+	{ "http_max_conns", 100, &var_cfg_max_conns, 0, 0 },
+	{ "http_conn_timeout", 10, &var_cfg_conn_timeout, 0, 0 },
+	{ "http_rw_timeout", 10, &var_cfg_rw_timeout, 0, 0 },
 	{ "rpc_timer_interval", 10, &var_cfg_rpc_timer_interval, 0, 0 },	
 	{ 0, 0 , 0 , 0, 0 }
 };
@@ -93,7 +93,7 @@ void master_service::proc_on_init()
 
 	// start one timer to logger the rpc status
 	rpc_timer* timer = new rpc_timer(*handle);
-	timer->start(1);
+	timer->start(var_cfg_rpc_timer_interval);
 
 	__conn_manager = new acl::http_request_manager();
 	__conn_manager->init(var_cfg_backend_addr, var_cfg_backend_addr, var_cfg_max_conns, var_cfg_conn_timeout, var_cfg_rw_timeout);
