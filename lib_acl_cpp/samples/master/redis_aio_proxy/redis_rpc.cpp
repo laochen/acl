@@ -127,62 +127,69 @@ void redis_rpc::handle_conn(acl::socket_stream* stream)
     acl::string request;
     acl::ostream& out = *stream;
 
-    buf = (char*) dbuf_->dbuf_alloc(num_len);
-    buf[num_len - 1] = 0;
-
     ACL_VSTREAM* vstream = stream->get_vstream();
-    ret = acl_vstream_gets_nonl(vstream, buf, sizeof(buf) - 1);
-    if (ret == ACL_VSTREAM_EOF || ret < 2) {
-        return error(out, 8);
-    }
-    request << buf << "\r\n";
 
-    long long lines = acl_atoll(buf + 1);
-    lines = lines * 2;
-
-    if (lines <= 0) {
-        return error(out, 6);
-    }
-
-    while (lines > 0) {
-        max = wanted + 2 + 1 > num_len ? wanted + 2 + 1 : num_len; // 尾巴\r\n\0
-        buf = (char*) dbuf_->dbuf_alloc(max);
-        buf[max - 1] = 0;
-        ret = acl_vstream_gets_nonl(vstream, buf, max);
+    do {
+        request = "";
+        fields.clear();
+        buf = (char*) dbuf_->dbuf_alloc(num_len);
+        buf[num_len - 1] = 0;
+        ret = acl_vstream_gets_nonl(vstream, buf, sizeof(buf) - 1);
         if (ret == ACL_VSTREAM_EOF) {
+            break;
+        }
+        if (ret < 2) {
             return error(out, 8);
         }
-        if ((lines & 1) == 0) {
-            wanted =  acl_atoll(buf + 1);
-        } else {
-            //各字段内容
-            if (ret != wanted) {
+        request << buf << "\r\n";
+
+        long long lines = acl_atoll(buf + 1);
+        lines = lines * 2;
+
+        if (lines <= 0) {
+            return error(out, 6);
+        }
+
+        while (lines > 0) {
+            max = wanted + 2 + 1 > num_len ? wanted + 2 + 1 : num_len; // 尾巴\r\n\0
+            buf = (char*) dbuf_->dbuf_alloc(max);
+            buf[max - 1] = 0;
+            ret = acl_vstream_gets_nonl(vstream, buf, max);
+            if (ret == ACL_VSTREAM_EOF) {
                 return error(out, 8);
             }
-            fields.push_back(buf);
-            wanted = 0;
+            if ((lines & 1) == 0) {
+                wanted =  acl_atoll(buf + 1);
+            } else {
+                //各字段内容
+                if (ret != wanted) {
+                    return error(out, 8);
+                }
+                fields.push_back(buf);
+                wanted = 0;
+            }
+            request << buf << "\r\n";
+            lines = lines - 1;
         }
-        request << buf << "\r\n";
-        lines = lines - 1;
-    }
 
-    int command_id =  check_command(fields);
-    if (command_id < 0 ) {
-        return error(out, 7);
-    }
+        int command_id =  check_command(fields);
+        if (command_id < 0 ) {
+            return error(out, 7);
+        }
 
-    int id = redisCommandTable[command_id].firstkey;
-    redis_proxy_->hash_slot(fields[id], strlen(fields[id]));
-    redis_proxy_->build_request(request.c_str(), request.length());
-    const acl::redis_result* result = redis_proxy_->run();
-    if (result) {
-        acl::string outstr;
-        result_to_string(result, outstr);
-        out.write(outstr);
-    } else {
-        //服务器返回未知错误
-        return error(out, 2);
-    }
+        int id = redisCommandTable[command_id].firstkey;
+        redis_proxy_->hash_slot(fields[id], strlen(fields[id]));
+        redis_proxy_->build_request(request.c_str(), request.length());
+        const acl::redis_result* result = redis_proxy_->run();
+        if (result) {
+            acl::string outstr;
+            result_to_string(result, outstr);
+            out.write(outstr);
+        } else {
+            //服务器返回未知错误
+            return error(out, 2);
+        }
+    } while (1);
 }
 
 void redis_rpc::rpc_onover()
